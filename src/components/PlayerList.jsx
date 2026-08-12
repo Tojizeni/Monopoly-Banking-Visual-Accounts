@@ -1,0 +1,52 @@
+import React from 'react';
+
+export default function PlayerList({ players, bankBalance }) {
+    const safePlayers = players || [];
+
+    return (
+        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-5 shadow-xl h-full">
+            <h3 className="text-lg font-bold text-white border-b border-gray-700 pb-3 mb-4">
+                Game Lobby
+            </h3>
+
+            {/* Banker / Bank Entry */}
+            <div className="flex items-center justify-between bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center font-bold text-sm text-black">
+                        🏦
+                    </div>
+                    <div>
+                        <p className="font-medium text-yellow-400 text-sm">Banker (Host)</p>
+                    </div>
+                </div>
+                <p className="font-mono text-yellow-400 font-semibold">
+                    ${bankBalance || 100000}
+                </p>
+            </div>
+
+            {/* Players List (Sirf khiladi yahan aayenge) */}
+            <div className="space-y-3">
+                {safePlayers.length === 0 && (
+                    <p className="text-gray-500 text-sm text-center py-4">Waiting for players to join...</p>
+                )}
+                {safePlayers.map(player => (
+                    <div key={player._id} className="flex items-center justify-between bg-gray-900/50 p-3 rounded-lg">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center font-bold text-sm">
+                                {player.name.charAt(0)}
+                            </div>
+                            <div>
+                                <p className="font-medium text-white text-sm">
+                                    {player.name}
+                                </p>
+                            </div>
+                        </div>
+                        <p className="font-mono text-emerald-400 font-semibold">
+                            ${player.balance}
+                        </p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
