@@ -7,12 +7,12 @@ import Banker from '../components/Banker';
 import TransactionHistory from '../components/TransactionHistory';
 
 
-const kickPlayer = useMutation(api.game.leaveRoom);
+
 export default function RoomBanker() {
     const { id } = useParams();
     const roomId = id;
     const navigate = useNavigate();
-
+    const kickPlayer = useMutation(api.game.leaveRoom);
     // 1. Hooks sabse pehle declare hone chahiye (Rules of Hooks)
     const gameState = useQuery(api.game.getRoomState, { roomId: roomId });
     const bankerPay = useMutation(api.game.bankerPayPlayer);
