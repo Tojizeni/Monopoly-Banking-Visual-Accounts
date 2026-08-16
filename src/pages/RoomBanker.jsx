@@ -6,6 +6,8 @@ import PlayerList from '../components/PlayerList';
 import Banker from '../components/Banker';
 import TransactionHistory from '../components/TransactionHistory';
 
+
+const kickPlayer = useMutation(api.game.leaveRoom);
 export default function RoomBanker() {
     const { id } = useParams();
     const roomId = id;

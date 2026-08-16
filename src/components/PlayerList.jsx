@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function PlayerList({ players, bankBalance }) {
+export default function PlayerList({ players, bankBalance, onKickPlayer }) {
     const safePlayers = players || [];
 
     return (
@@ -24,7 +24,7 @@ export default function PlayerList({ players, bankBalance }) {
                 </p>
             </div>
 
-            {/* Players List (Sirf khiladi yahan aayenge) */}
+            {/* Players List */}
             <div className="space-y-3">
                 {safePlayers.length === 0 && (
                     <p className="text-gray-500 text-sm text-center py-4">Waiting for players to join...</p>
@@ -41,9 +41,28 @@ export default function PlayerList({ players, bankBalance }) {
                                 </p>
                             </div>
                         </div>
-                        <p className="font-mono text-emerald-400 font-semibold">
-                            ${player.balance}
-                        </p>
+
+                        <div className="flex items-center gap-3">
+                            <p className="font-mono text-emerald-400 font-semibold">
+                                ${player.balance}
+                            </p>
+                            {/* Agar onKickPlayer function pass hua hai (Banker side), toh Remove button dikhao */}
+                            {onKickPlayer && (
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm(`Remove ${player.name} from the game?`)) {
+                                            onKickPlayer(player._id);
+                                        }
+                                    }}
+                                    className="text-gray-500 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-500/10"
+                                    title={`Kick ${player.name}`}
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
