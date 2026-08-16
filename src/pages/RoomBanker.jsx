@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // useState import karo
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -6,23 +6,21 @@ import PlayerList from '../components/PlayerList';
 import Banker from '../components/Banker';
 import TransactionHistory from '../components/TransactionHistory';
 
-
-
 export default function RoomBanker() {
     const { id } = useParams();
     const roomId = id;
     const navigate = useNavigate();
-    const kickPlayer = useMutation(api.game.leaveRoom);
-    // 1. Hooks sabse pehle declare hone chahiye (Rules of Hooks)
+
     const gameState = useQuery(api.game.getRoomState, { roomId: roomId });
     const bankerPay = useMutation(api.game.bankerPayPlayer);
     const bankerCollect = useMutation(api.game.bankerCollectPlayer);
     const deleteRoom = useMutation(api.game.deleteRoom);
 
-    // isLeaving state bhi yahan upar honi chahiye
+    // Yeh function player ko nikalne ke liye hai
+    const kickPlayer = useMutation(api.game.leaveRoom);
+
     const [isLeaving, setIsLeaving] = useState(false);
 
-    // Agar room delete ho jaye ya data na mile
     if (!gameState || !gameState.room) {
         return (
             <div className="p-8 text-center text-gray-400 min-h-screen flex flex-col items-center justify-center">
@@ -65,7 +63,12 @@ export default function RoomBanker() {
 
             <div className="flex flex-col lg:flex-row gap-6">
                 <div className="lg:w-1/4 min-w-0">
-                    <PlayerList players={gameState.players} bankBalance={gameState.room?.bankBalance} />
+                    {/* Yahan kickPlayer function pass kar diya */}
+                    <PlayerList
+                        players={gameState.players}
+                        bankBalance={gameState.room?.bankBalance}
+                        onKickPlayer={(playerId) => kickPlayer({ playerId })}
+                    />
                 </div>
                 <div className="lg:w-2/4 min-w-0">
                     <Banker

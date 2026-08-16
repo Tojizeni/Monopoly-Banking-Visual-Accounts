@@ -46,10 +46,12 @@ export default function PlayerList({ players, bankBalance, onKickPlayer }) {
                             <p className="font-mono text-emerald-400 font-semibold">
                                 ${player.balance}
                             </p>
-                            {/* Agar onKickPlayer function pass hua hai (Banker side), toh Remove button dikhao */}
+
+                            {/* Agar onKickPlayer pass hua hai (Banker side), toh Remove (X) button dikhao */}
                             {onKickPlayer && (
                                 <button
                                     onClick={() => {
+                                        // Confirmation message
                                         if (window.confirm(`Remove ${player.name} from the game?`)) {
                                             onKickPlayer(player._id);
                                         }
