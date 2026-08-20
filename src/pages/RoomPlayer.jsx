@@ -85,8 +85,7 @@ export default function RoomPlayer() {
                 <PropertyManager
                     properties={gameState.properties}
                     players={gameState.players}
-                // Hum onBuyProperty ya onTradeProperty nahi bhej rahe, 
-                // isliye player ko sirf list dikhegi, dropdowns nahi aayenge.
+                    currentPlayerId={myPlayerId} // YEH LINE ADD KARNI HAI
                 />
             </div>
 
