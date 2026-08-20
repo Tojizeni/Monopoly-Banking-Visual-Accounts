@@ -5,12 +5,14 @@ import { api } from '../../convex/_generated/api';
 import PlayerList from '../components/PlayerList';
 import Banker from '../components/Banker';
 import TransactionHistory from '../components/TransactionHistory';
+import PropertyManager from '../components/PropertyManager';
 
 export default function RoomBanker() {
     const { id } = useParams();
     const roomId = id;
     const navigate = useNavigate();
-
+    const buyProperty = useMutation(api.game.buyProperty);
+    const tradeProperty = useMutation(api.game.tradeProperty);
     const gameState = useQuery(api.game.getRoomState, { roomId: roomId });
     const bankerPay = useMutation(api.game.bankerPayPlayer);
     const bankerCollect = useMutation(api.game.bankerCollectPlayer);
@@ -81,6 +83,17 @@ export default function RoomBanker() {
                     <TransactionHistory transactions={gameState.transactions} />
                 </div>
             </div>
+
+            {/* ⬇️ YEH LINE ADD KARNI THI JO BHUL GAYE THE ⬇️ */}
+            <div className="mt-6">
+                <PropertyManager
+                    properties={gameState.properties}
+                    players={gameState.players}
+                    onBuyProperty={(propId, playerId) => buyProperty({ propertyId: propId, playerId })}
+                    onTradeProperty={(propId, toPlayerId) => tradeProperty({ propertyId: propId, toPlayerId })}
+                />
+            </div>
+
         </div>
     );
 }

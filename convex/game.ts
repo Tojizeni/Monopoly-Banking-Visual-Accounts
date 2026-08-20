@@ -269,12 +269,14 @@ export const tradeProperty = mutation({
     const property = await ctx.db.get(args.propertyId);
     if (!property || !property.ownerId) throw new Error("Property has no owner");
 
-    // Property ka malik badal do
-    await ctx.db.patch(args.propertyId, { ownerId: args.toPlayerId });
-    
-    // Transaction log karo (paise alag se handle honge normal Pay Player se)
+       // Pehle purana malik (fromPlayer) nikal lo
     const fromPlayer = await ctx.db.get(property.ownerId);
     const toPlayer = await ctx.db.get(args.toPlayerId);
+
+    // Ab property ka malik badal do
+    await ctx.db.patch(args.propertyId, { ownerId: args.toPlayerId });
+    
+    // Transaction log karo
     if (fromPlayer && toPlayer) {
       await logTransaction(ctx, fromPlayer.roomId, fromPlayer.name, toPlayer.name, 0);
     }
