@@ -13,7 +13,7 @@ export default defineSchema({
     name: v.string(),
     balance: v.number(),
     isBanker: v.boolean(),
-  }).index("by_room", ["roomId"]), // YE LINE ZAROOR HONI CHAHIYE
+  }).index("by_room", ["roomId"]),
 
   transactions: defineTable({
     roomId: v.id("rooms"),
@@ -21,5 +21,14 @@ export default defineSchema({
     to: v.string(),
     amount: v.number(),
     timestamp: v.number(),
-  }).index("by_room", ["roomId"]), // YE LINE BHI ZAROOR HONI CHAHIYE
-});
+  }).index("by_room", ["roomId"]),
+
+  // YE TABLE ANDAR HONA CHAHIYE
+  properties: defineTable({
+    roomId: v.id("rooms"),
+    name: v.string(),
+    price: v.number(),
+    ownerId: v.optional(v.id("players")),
+    color: v.string(),
+  }).index("by_room", ["roomId"]),
+}); // YAHAN SCHEMA BAND HOGA
