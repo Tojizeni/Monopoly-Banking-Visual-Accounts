@@ -41,44 +41,56 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                                 <span className="text-gray-400 text-xs font-mono">${prop.price}</span>
                             </div>
 
-                            {/* Agar property Bank ki hai toh "Assign" dropdown dikhao */}
+                            {/* Agar property Bank ki hai */}
                             {!owner ? (
-                                <select
-                                    defaultValue=""
-                                    onChange={(e) => {
-                                        if (e.target.value) {
-                                            onBuyProperty(prop._id, e.target.value);
-                                            e.target.value = ""; // reset
-                                        }
-                                    }}
-                                    className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
-                                >
-                                    <option value="" disabled>Assign to Player...</option>
-                                    {players.map(p => (
-                                        <option key={p._id} value={p._id}>{p.name}</option>
-                                    ))}
-                                </select>
-                            ) : (
-                                /* Agar property kisi Player ki hai toh owner naam aur "Trade" dropdown dikhao */
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-center font-medium">
-                                        {owner.name}
-                                    </span>
+                                onBuyProperty ? (
+                                    // Banker ko dropdown dikhao
                                     <select
                                         defaultValue=""
                                         onChange={(e) => {
                                             if (e.target.value) {
-                                                onTradeProperty(prop._id, e.target.value);
+                                                onBuyProperty(prop._id, e.target.value);
                                                 e.target.value = ""; // reset
                                             }
                                         }}
-                                        className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-indigo-500"
+                                        className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
                                     >
-                                        <option value="" disabled>Trade to...</option>
-                                        {players.filter(p => p._id !== owner._id).map(p => (
+                                        <option value="" disabled>Assign to Player...</option>
+                                        {players.map(p => (
                                             <option key={p._id} value={p._id}>{p.name}</option>
                                         ))}
                                     </select>
+                                ) : (
+                                    // Player ko sirf text dikhao
+                                    <span className="text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded text-center font-medium block text-center">
+                                        In Bank
+                                    </span>
+                                )
+                            ) : (
+                                /* Agar property kisi Player ki hai */
+                                <div className="flex flex-col gap-2">
+                                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-center font-medium">
+                                        {owner.name}
+                                    </span>
+
+                                    {onTradeProperty && (
+                                        // Sirf Banker ko Trade wala dropdown dikhao
+                                        <select
+                                            defaultValue=""
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    onTradeProperty(prop._id, e.target.value);
+                                                    e.target.value = ""; // reset
+                                                }
+                                            }}
+                                            className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-indigo-500"
+                                        >
+                                            <option value="" disabled>Trade to...</option>
+                                            {players.filter(p => p._id !== owner._id).map(p => (
+                                                <option key={p._id} value={p._id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
                             )}
                         </div>

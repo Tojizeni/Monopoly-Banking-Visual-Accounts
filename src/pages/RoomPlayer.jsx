@@ -5,12 +5,13 @@ import { api } from '../../convex/_generated/api';
 import PlayerList from '../components/PlayerList';
 import Player from '../components/Player';
 import TransactionHistory from '../components/TransactionHistory';
+import PropertyManager from '../components/PropertyManager'; // 1. YEH IMPORT ADD KIYA HAI
 
 export default function RoomPlayer() {
     const { id } = useParams();
     const roomId = id;
     const leaveRoom = useMutation(api.game.leaveRoom);
-    const navigate = useNavigate(); // import na ho to upar se karein
+    const navigate = useNavigate();
 
     // 1. Convex se live data lo
     const gameState = useQuery(api.game.getRoomState, { roomId: roomId });
@@ -19,7 +20,7 @@ export default function RoomPlayer() {
     const payBankMutation = useMutation(api.game.playerPayBank);
     const payPlayerMutation = useMutation(api.game.playerPayPlayer);
 
-    // 3. Current player ka ID localStorage se lo (Join karte waqt save hua tha)
+    // 3. Current player ka ID localStorage se lo
     const myPlayerId = localStorage.getItem('playerId');
 
     if (!gameState) {
@@ -78,6 +79,17 @@ export default function RoomPlayer() {
                     <TransactionHistory transactions={gameState.transactions} />
                 </div>
             </div>
+
+            {/* 2. YEH PROPERTY MANAGER COMPONENT ADD KIYA HAI */}
+            <div className="mt-6">
+                <PropertyManager
+                    properties={gameState.properties}
+                    players={gameState.players}
+                // Hum onBuyProperty ya onTradeProperty nahi bhej rahe, 
+                // isliye player ko sirf list dikhegi, dropdowns nahi aayenge.
+                />
+            </div>
+
         </div>
     );
 }
