@@ -89,8 +89,7 @@ export default function RoomBanker() {
                 <PropertyManager
                     properties={gameState.properties}
                     players={gameState.players}
-                    onBuyProperty={(propId, playerId) => buyProperty({ propertyId: propId, playerId })}
-                // onTradeProperty yahan se hata diya
+                    onBuyProperty={(propId, playerId, amount) => buyProperty({ propertyId: propId, playerId, customPrice: amount })}
                 />
             </div>
 

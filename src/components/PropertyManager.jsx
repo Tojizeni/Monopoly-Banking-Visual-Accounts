@@ -20,13 +20,11 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
 
     // Agar currentPlayerId pass hua hai, toh ye PLAYER ka view hai
     if (currentPlayerId) {
-        // FIX: String() laga kar IDs ko compare kiya hai
         const myProps = properties.filter(p => String(p.ownerId) === String(currentPlayerId));
         const bankProps = properties.filter(p => !p.ownerId);
         const otherProps = properties.filter(p => p.ownerId && String(p.ownerId) !== String(currentPlayerId));
 
         const renderCard = (prop) => {
-            // FIX: Yahan bhi String() lagaya hai
             const owner = players.find(p => String(p._id) === String(prop.ownerId));
             const isMortgaged = prop.mortgaged;
 
@@ -116,7 +114,6 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                         <h3 className="text-lg font-semibold text-indigo-400 mb-3 border-b border-gray-700 pb-2">Owned by Others ({otherProps.length})</h3>
                         <div className="flex flex-wrap gap-2">
                             {otherProps.map(prop => {
-                                // FIX: Yahan bhi String() lagaya hai
                                 const owner = players.find(p => String(p._id) === String(prop.ownerId));
                                 return (
                                     <span key={prop._id} className="flex items-center gap-2 bg-gray-900/50 px-3 py-1 rounded-full border border-gray-700 text-sm text-gray-300">
@@ -132,7 +129,7 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
         );
     }
 
-    // Agar currentPlayerId nahi hai, toh ye BANKER ka view hai (Purana wala)
+    // Agar currentPlayerId nahi hai, toh ye BANKER ka view hai (With Auction Support)
     return (
         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 shadow-xl mt-6">
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
@@ -142,7 +139,6 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2">
                 {properties.map(prop => {
-                    // FIX: Yahan bhi String() lagaya hai
                     const owner = players.find(p => String(p._id) === String(prop.ownerId));
 
                     return (
@@ -157,16 +153,45 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
 
                             {!owner ? (
                                 onBuyProperty ? (
-                                    <select
-                                        defaultValue=""
-                                        onChange={(e) => {
-                                            if (e.target.value) { onBuyProperty(prop._id, e.target.value); e.target.value = ""; }
+                                    // Banker ko Sell/Auction ka form dikhao (Custom Price ke sath)
+                                    <form
+                                        onSubmit={(e) => {
+                                            e.preventDefault();
+                                            const formData = new FormData(e.target);
+                                            const playerId = formData.get('player');
+                                            const amount = Number(formData.get('price')) || prop.price;
+                                            if (playerId) {
+                                                onBuyProperty(prop._id, playerId, amount);
+                                                e.target.reset();
+                                            }
                                         }}
-                                        className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
+                                        className="flex flex-col gap-2"
                                     >
-                                        <option value="" disabled>Assign to Player...</option>
-                                        {players.map(p => (<option key={p._id} value={p._id}>{p.name}</option>))}
-                                    </select>
+                                        <select
+                                            name="player"
+                                            required
+                                            defaultValue=""
+                                            className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
+                                        >
+                                            <option value="" disabled>Select Player...</option>
+                                            {players.map(p => (<option key={p._id} value={p._id}>{p.name}</option>))}
+                                        </select>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="number"
+                                                name="price"
+                                                defaultValue={prop.price}
+                                                className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-emerald-500"
+                                                placeholder="Price"
+                                            />
+                                            <button
+                                                type="submit"
+                                                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 rounded font-medium whitespace-nowrap"
+                                            >
+                                                Sell
+                                            </button>
+                                        </div>
+                                    </form>
                                 ) : (
                                     <span className="text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded text-center font-medium block">In Bank</span>
                                 )
