@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function PropertyManager({ properties, players, onBuyProperty, onTradeProperty, currentPlayerId, onMortgage, onUnmortgage })  {
+export default function PropertyManager({ properties, players, onBuyProperty, onTradeProperty, currentPlayerId, onMortgage, onUnmortgage }) {
     if (!properties || properties.length === 0) {
         return null;
     }
@@ -20,12 +20,14 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
 
     // Agar currentPlayerId pass hua hai, toh ye PLAYER ka view hai
     if (currentPlayerId) {
-        const myProps = properties.filter(p => p.ownerId === currentPlayerId);
+        // FIX: String() laga kar IDs ko compare kiya hai
+        const myProps = properties.filter(p => String(p.ownerId) === String(currentPlayerId));
         const bankProps = properties.filter(p => !p.ownerId);
-        const otherProps = properties.filter(p => p.ownerId && p.ownerId !== currentPlayerId);
+        const otherProps = properties.filter(p => p.ownerId && String(p.ownerId) !== String(currentPlayerId));
 
         const renderCard = (prop) => {
-            const owner = players.find(p => p._id === prop.ownerId);
+            // FIX: Yahan bhi String() lagaya hai
+            const owner = players.find(p => String(p._id) === String(prop.ownerId));
             const isMortgaged = prop.mortgaged;
 
             return (
@@ -41,7 +43,7 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                     )}
 
                     {/* Agar ye property meri hai toh Trade aur Mortgage options dikhao */}
-                    {owner && owner._id === currentPlayerId && (
+                    {owner && String(owner._id) === String(currentPlayerId) && (
                         <div className="mt-auto pt-2 space-y-2">
                             {!isMortgaged ? (
                                 <>
@@ -53,7 +55,7 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                                         className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-indigo-500"
                                     >
                                         <option value="" disabled>Trade to...</option>
-                                        {players.filter(p => p._id !== currentPlayerId).map(p => (
+                                        {players.filter(p => String(p._id) !== String(currentPlayerId)).map(p => (
                                             <option key={p._id} value={p._id}>{p.name}</option>
                                         ))}
                                     </select>
@@ -114,7 +116,8 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                         <h3 className="text-lg font-semibold text-indigo-400 mb-3 border-b border-gray-700 pb-2">Owned by Others ({otherProps.length})</h3>
                         <div className="flex flex-wrap gap-2">
                             {otherProps.map(prop => {
-                                const owner = players.find(p => p._id === prop.ownerId);
+                                // FIX: Yahan bhi String() lagaya hai
+                                const owner = players.find(p => String(p._id) === String(prop.ownerId));
                                 return (
                                     <span key={prop._id} className="flex items-center gap-2 bg-gray-900/50 px-3 py-1 rounded-full border border-gray-700 text-sm text-gray-300">
                                         <span className={`w-3 h-3 rounded-full ${colorMap[prop.color]}`}></span>
@@ -139,7 +142,8 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2">
                 {properties.map(prop => {
-                    const owner = players.find(p => p._id === prop.ownerId);
+                    // FIX: Yahan bhi String() lagaya hai
+                    const owner = players.find(p => String(p._id) === String(prop.ownerId));
 
                     return (
                         <div key={prop._id} className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 flex flex-col">
@@ -180,7 +184,7 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                                             className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-indigo-500"
                                         >
                                             <option value="" disabled>Trade to...</option>
-                                            {players.filter(p => p._id !== owner._id).map(p => (<option key={p._id} value={p._id}>{p.name}</option>))}
+                                            {players.filter(p => String(p._id) !== String(owner._id)).map(p => (<option key={p._id} value={p._id}>{p.name}</option>))}
                                         </select>
                                     )}
                                 </div>
