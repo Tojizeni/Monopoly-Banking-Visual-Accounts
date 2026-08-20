@@ -90,7 +90,7 @@ export default function RoomBanker() {
                     properties={gameState.properties}
                     players={gameState.players}
                     onBuyProperty={(propId, playerId) => buyProperty({ propertyId: propId, playerId })}
-                    onTradeProperty={(propId, toPlayerId) => tradeProperty({ propertyId: propId, toPlayerId })}
+                // onTradeProperty yahan se hata diya
                 />
             </div>
 

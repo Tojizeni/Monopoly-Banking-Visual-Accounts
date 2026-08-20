@@ -16,9 +16,14 @@ export default function RoomPlayer() {
     // 1. Convex se live data lo
     const gameState = useQuery(api.game.getRoomState, { roomId: roomId });
 
-    // 2. Actions ko Convex se connect karo
+    // Ye lines pehle se hongi
     const payBankMutation = useMutation(api.game.playerPayBank);
     const payPlayerMutation = useMutation(api.game.playerPayPlayer);
+
+    // YE 3 LINES ADD KARO
+    const tradePropMutation = useMutation(api.game.tradeProperty);
+    const mortgagePropMutation = useMutation(api.game.mortgageProperty);
+    const unmortgagePropMutation = useMutation(api.game.unmortgageProperty);
 
     // 3. Current player ka ID localStorage se lo
     const myPlayerId = localStorage.getItem('playerId');
@@ -85,7 +90,10 @@ export default function RoomPlayer() {
                 <PropertyManager
                     properties={gameState.properties}
                     players={gameState.players}
-                    currentPlayerId={myPlayerId} // YEH LINE ADD KARNI HAI
+                    currentPlayerId={myPlayerId}
+                    onTradeProperty={(propId, toPlayerId) => tradePropMutation({ propertyId: propId, toPlayerId })}
+                    onMortgage={(propId) => mortgagePropMutation({ propertyId: propId })}
+                    onUnmortgage={(propId) => unmortgagePropMutation({ propertyId: propId })}
                 />
             </div>
 

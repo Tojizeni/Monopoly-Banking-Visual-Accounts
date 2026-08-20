@@ -26,14 +26,52 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
 
         const renderCard = (prop) => {
             const owner = players.find(p => p._id === prop.ownerId);
+            const isMortgaged = prop.mortgaged;
+
             return (
-                <div key={prop._id} className="bg-gray-900/50 p-4 rounded-xl border border-gray-700 flex flex-col">
+                <div key={prop._id} className={`p-4 rounded-xl border flex flex-col ${isMortgaged ? 'bg-red-900/20 border-red-700/50' : 'bg-gray-900/50 border-gray-700'}`}>
                     <div className="flex items-center justify-between mb-2">
-                        <span className={`w-4 h-4 rounded ${colorMap[prop.color] || 'bg-gray-500'}`}></span>
+                        <span className={`w-4 h-4 rounded ${colorMap[prop.color] || 'bg-gray-500'} ${isMortgaged ? 'opacity-50' : ''}`}></span>
                         <span className="text-gray-400 text-xs font-mono">${prop.price}</span>
                     </div>
                     <span className="font-medium text-white text-sm mb-2">{prop.name}</span>
-                    {owner && <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-center font-medium">{owner.name}</span>}
+
+                    {isMortgaged && (
+                        <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded text-center font-medium mb-2">Mortgaged</span>
+                    )}
+
+                    {/* Agar ye property meri hai toh Trade aur Mortgage options dikhao */}
+                    {owner && owner._id === currentPlayerId && (
+                        <div className="mt-auto pt-2 space-y-2">
+                            {!isMortgaged ? (
+                                <>
+                                    <select
+                                        defaultValue=""
+                                        onChange={(e) => {
+                                            if (e.target.value) { onTradeProperty && onTradeProperty(prop._id, e.target.value); e.target.value = ""; }
+                                        }}
+                                        className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-indigo-500"
+                                    >
+                                        <option value="" disabled>Trade to...</option>
+                                        {players.filter(p => p._id !== currentPlayerId).map(p => (
+                                            <option key={p._id} value={p._id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                    {onMortgage && (
+                                        <button onClick={() => onMortgage(prop._id)} className="w-full text-xs bg-yellow-600/80 hover:bg-yellow-600 text-white px-2 py-2 rounded font-medium">
+                                            Mortgage (+${Math.floor(prop.price / 2)})
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                onUnmortgage && (
+                                    <button onClick={() => onUnmortgage(prop._id)} className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-2 rounded font-medium">
+                                        Repay Mortgage (-${Math.floor(prop.price / 2)})
+                                    </button>
+                                )
+                            )}
+                        </div>
+                    )}
                 </div>
             );
         };

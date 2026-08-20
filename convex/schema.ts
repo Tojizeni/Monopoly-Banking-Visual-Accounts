@@ -23,12 +23,12 @@ export default defineSchema({
     timestamp: v.number(),
   }).index("by_room", ["roomId"]),
 
-  // YE TABLE ANDAR HONA CHAHIYE
   properties: defineTable({
     roomId: v.id("rooms"),
     name: v.string(),
     price: v.number(),
     ownerId: v.optional(v.id("players")),
     color: v.string(),
+    mortgaged: v.optional(v.boolean()), // YE LINE ADD KARO
   }).index("by_room", ["roomId"]),
 }); // YAHAN SCHEMA BAND HOGA

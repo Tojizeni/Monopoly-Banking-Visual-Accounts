@@ -282,3 +282,48 @@ export const tradeProperty = mutation({
     }
   },
 });
+
+// 12. Player mortgages a property to the Bank
+export const mortgageProperty = mutation({
+  args: { propertyId: v.id("properties") },
+  handler: async (ctx, args) => {
+    const property = await ctx.db.get(args.propertyId);
+    if (!property || !property.ownerId) throw new Error("Property has no owner");
+    if (property.mortgaged) throw new Error("Property is already mortgaged");
+
+    const player = await ctx.db.get(property.ownerId);
+    if (!player) throw new Error("Player not found");
+
+    const loanAmount = Math.floor(property.price / 2);
+
+    // Player ko aadhe paise do
+    await ctx.db.patch(player._id, { balance: player.balance + loanAmount });
+    // Property ko mortgaged mark karo
+    await ctx.db.patch(args.propertyId, { mortgaged: true });
+
+    await logTransaction(ctx, player.roomId, "Bank (Mortgage)", player.name, loanAmount);
+  },
+});
+
+// 13. Player repays the mortgage to get property back
+export const unmortgageProperty = mutation({
+  args: { propertyId: v.id("properties") },
+  handler: async (ctx, args) => {
+    const property = await ctx.db.get(args.propertyId);
+    if (!property || !property.ownerId) throw new Error("Property has no owner");
+    if (!property.mortgaged) throw new Error("Property is not mortgaged");
+
+    const player = await ctx.db.get(property.ownerId);
+    if (!player) throw new Error("Player not found");
+
+    const repayAmount = Math.floor(property.price / 2); // 10% interest ignore for simplicity
+    if (player.balance < repayAmount) throw new Error("Insufficient funds to unmortgage");
+
+    // Player se paise wapas le lo
+    await ctx.db.patch(player._id, { balance: player.balance - repayAmount });
+    // Property ko unmortgaged mark karo
+    await ctx.db.patch(args.propertyId, { mortgaged: false });
+
+    await logTransaction(ctx, player.roomId, player.name, "Bank (Unmortgage)", repayAmount);
+  },
+});
