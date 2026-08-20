@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function PropertyManager({ properties, players, onBuyProperty, onTradeProperty, currentPlayerId }) {
+export default function PropertyManager({ properties, players, onBuyProperty, onTradeProperty, currentPlayerId, onMortgage, onUnmortgage })  {
     if (!properties || properties.length === 0) {
         return null;
     }
