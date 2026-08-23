@@ -242,23 +242,31 @@ export const leaveRoom = mutation({
   },
 });
 
-// 10. Banker sells a property to a player (Player buys from Bank)
+// 10. Banker sells a property to a player (Supports Auctions with Custom Price)
 export const buyProperty = mutation({
-  args: { propertyId: v.id("properties"), playerId: v.id("players") },
+  args: { 
+    propertyId: v.id("properties"), 
+    playerId: v.id("players"),
+    customPrice: v.optional(v.number()) // YE LINE ADD KARNI HAI
+  },
   handler: async (ctx, args) => {
     const property = await ctx.db.get(args.propertyId);
     const player = await ctx.db.get(args.playerId);
     
     if (!property || !player) throw new Error("Property or Player not found");
     if (property.ownerId) throw new Error("Property already owned");
-    if (player.balance < property.price) throw new Error("Insufficient funds");
+
+    // Agar custom price (auction) hai toh wo use karo, warna original price
+    const finalPrice = args.customPrice !== undefined ? args.customPrice : property.price;
+    
+    if (player.balance < finalPrice) throw new Error("Insufficient funds");
 
     // 1. Player se paise kato
-    await ctx.db.patch(args.playerId, { balance: player.balance - property.price });
+    await ctx.db.patch(args.playerId, { balance: player.balance - finalPrice });
     // 2. Property player ko assign karo
     await ctx.db.patch(args.propertyId, { ownerId: args.playerId });
     
-    await logTransaction(ctx, player.roomId, player.name, "Bank (Property)", property.price);
+    await logTransaction(ctx, player.roomId, player.name, "Bank (Property)", finalPrice);
   },
 });
 
