@@ -70,7 +70,10 @@ export default function RoomPlayer() {
 
             <div className="flex flex-col lg:flex-row gap-6">
                 <div className="lg:w-1/4 min-w-0">
-                    <PlayerList players={gameState.players} />
+                    <PlayerList
+                        players={gameState.players}
+                        currentPlayerId={myPlayerId} // YE LINE ZAROOR HONI CHAHIYE
+                    />
                 </div>
                 <div className="lg:w-2/4 min-w-0">
                     <Player
