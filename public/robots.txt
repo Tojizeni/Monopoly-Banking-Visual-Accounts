@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://monopoly-banking-visual-accounts.vercel.app/sitemap.xml
