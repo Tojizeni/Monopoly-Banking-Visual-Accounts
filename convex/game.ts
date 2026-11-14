@@ -4,74 +4,80 @@ import { MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 
-// Helper function to generate a random 4-letter room code
 function generateCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
 
-// 1. Create a Room (Called from CreateRoom.jsx)
+// House building cost by color group
+const HOUSE_COST: Record<string, number> = {
+  brown: 50, lightblue: 50,
+  pink: 100, orange: 100,
+  red: 150, yellow: 150,
+  green: 200, darkblue: 200,
+};
+
+// Standard UK (London) Monopoly Properties with full Rent Table
+const propertyList = [
+  { name: "Old Kent Road", price: 60, color: "brown", rent: { site: 2, set: 4, house1: 10, house2: 30, house3: 90, house4: 160, hotel: 250 } },
+  { name: "Whitechapel Road", price: 60, color: "brown", rent: { site: 4, set: 8, house1: 20, house2: 60, house3: 180, house4: 320, hotel: 450 } },
+  { name: "The Angel, Islington", price: 100, color: "lightblue", rent: { site: 6, set: 12, house1: 30, house2: 90, house3: 270, house4: 400, hotel: 550 } },
+  { name: "Euston Road", price: 100, color: "lightblue", rent: { site: 6, set: 12, house1: 30, house2: 90, house3: 270, house4: 400, hotel: 550 } },
+  { name: "Pentonville Road", price: 120, color: "lightblue", rent: { site: 8, set: 16, house1: 40, house2: 100, house3: 300, house4: 450, hotel: 600 } },
+  { name: "Pall Mall", price: 140, color: "pink", rent: { site: 10, set: 20, house1: 50, house2: 150, house3: 450, house4: 625, hotel: 750 } },
+  { name: "Whitehall", price: 140, color: "pink", rent: { site: 10, set: 20, house1: 50, house2: 150, house3: 450, house4: 625, hotel: 750 } },
+  { name: "Northumberland Avenue", price: 160, color: "pink", rent: { site: 12, set: 24, house1: 60, house2: 180, house3: 500, house4: 700, hotel: 900 } },
+  { name: "Bow Street", price: 180, color: "orange", rent: { site: 14, set: 28, house1: 70, house2: 200, house3: 550, house4: 750, hotel: 950 } },
+  { name: "Marlborough Street", price: 180, color: "orange", rent: { site: 14, set: 28, house1: 70, house2: 200, house3: 550, house4: 750, hotel: 950 } },
+  { name: "Vine Street", price: 200, color: "orange", rent: { site: 16, set: 32, house1: 80, house2: 220, house3: 600, house4: 800, hotel: 1000 } },
+  { name: "Strand", price: 220, color: "red", rent: { site: 18, set: 36, house1: 90, house2: 250, house3: 700, house4: 875, hotel: 1050 } },
+  { name: "Fleet Street", price: 220, color: "red", rent: { site: 18, set: 36, house1: 90, house2: 250, house3: 700, house4: 875, hotel: 1050 } },
+  { name: "Trafalgar Square", price: 240, color: "red", rent: { site: 20, set: 40, house1: 100, house2: 300, house3: 750, house4: 925, hotel: 1100 } },
+  { name: "Leicester Square", price: 260, color: "yellow", rent: { site: 22, set: 44, house1: 110, house2: 330, house3: 800, house4: 975, hotel: 1150 } },
+  { name: "Coventry Street", price: 260, color: "yellow", rent: { site: 22, set: 44, house1: 110, house2: 330, house3: 800, house4: 975, hotel: 1150 } },
+  { name: "Piccadilly", price: 280, color: "yellow", rent: { site: 24, set: 48, house1: 120, house2: 360, house3: 850, house4: 1000, hotel: 1200 } },
+  { name: "Regent Street", price: 300, color: "green", rent: { site: 26, set: 52, house1: 130, house2: 390, house3: 900, house4: 1100, hotel: 1275 } },
+  { name: "Oxford Street", price: 300, color: "green", rent: { site: 26, set: 52, house1: 130, house2: 390, house3: 900, house4: 1100, hotel: 1275 } },
+  { name: "Bond Street", price: 320, color: "green", rent: { site: 28, set: 56, house1: 150, house2: 450, house3: 1000, house4: 1200, hotel: 1400 } },
+  { name: "Park Lane", price: 350, color: "darkblue", rent: { site: 35, set: 70, house1: 175, house2: 500, house3: 1100, house4: 1300, hotel: 1500 } },
+  { name: "Mayfair", price: 400, color: "darkblue", rent: { site: 50, set: 100, house1: 200, house2: 600, house3: 1400, house4: 1700, hotel: 2000 } },
+  // Stations (rent based on how many stations owner has)
+  { name: "King's Cross Station", price: 200, color: "black" },
+  { name: "Marylebone Station", price: 200, color: "black" },
+  { name: "Fenchurch St. Station", price: 200, color: "black" },
+  { name: "Liverpool St. Station", price: 200, color: "black" },
+  // Utilities (4x / 10x dice roll)
+  { name: "Electric Company", price: 150, color: "white" },
+  { name: "Water Works", price: 150, color: "white" },
+];
+
+// 1. Create a Room
 export const createRoom = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     const code = generateCode();
-    // Bank ke paas $100,000 rakhenge
     const room = await ctx.db.insert("rooms", { 
       code, 
       createdAt: Date.now(),
       bankBalance: 100000 
     });
 
-  // Standard UK (London) Monopoly Properties list
-const propertyList = [
-  { name: "Old Kent Road", price: 60, color: "brown" },
-  { name: "Whitechapel Road", price: 60, color: "brown" },
-  { name: "The Angel, Islington", price: 100, color: "lightblue" },
-  { name: "Euston Road", price: 100, color: "lightblue" },
-  { name: "Pentonville Road", price: 120, color: "lightblue" },
-  { name: "Pall Mall", price: 140, color: "pink" },
-  { name: "Whitehall", price: 140, color: "pink" },
-  { name: "Northumberland Avenue", price: 160, color: "pink" },
-  { name: "Bow Street", price: 180, color: "orange" },
-  { name: "Marlborough Street", price: 180, color: "orange" },
-  { name: "Vine Street", price: 200, color: "orange" },
-  { name: "Strand", price: 220, color: "red" },
-  { name: "Fleet Street", price: 220, color: "red" },
-  { name: "Trafalgar Square", price: 240, color: "red" },
-  { name: "Leicester Square", price: 260, color: "yellow" },
-  { name: "Coventry Street", price: 260, color: "yellow" },
-  { name: "Piccadilly", price: 280, color: "yellow" },
-  { name: "Regent Street", price: 300, color: "green" },
-  { name: "Oxford Street", price: 300, color: "green" },
-  { name: "Bond Street", price: 320, color: "green" },
-  { name: "Park Lane", price: 350, color: "darkblue" },
-  { name: "Mayfair", price: 400, color: "darkblue" },
-  // Stations
-  { name: "King's Cross Station", price: 200, color: "black" },
-  { name: "Marylebone Station", price: 200, color: "black" },
-  { name: "Fenchurch St. Station", price: 200, color: "black" },
-  { name: "Liverpool St. Station", price: 200, color: "black" },
-  // Utilities
-  { name: "Electric Company", price: 150, color: "white" },
-  { name: "Water Works", price: 150, color: "white" },
-];
+    for (const prop of propertyList) {
+      await ctx.db.insert("properties", {
+        roomId: room,
+        name: prop.name,
+        price: prop.price,
+        color: prop.color,
+        rent: "rent" in prop ? prop.rent : undefined,
+        houses: 0,
+        hotel: false,
+      });
+    }
 
-// Room banane ke turant baad properties database mein daal do
-for (const prop of propertyList) {
-  await ctx.db.insert("properties", {
-    roomId: room,
-    name: prop.name,
-    price: prop.price,
-    color: prop.color,
-    ownerId: undefined, // Shuru mein sab Bank ki hain
-  });
-}
-
-    // Ab hum banker ko players list mein nahi daalenge
     return { roomCode: code, roomId: room };
   },
 });
 
-// 2. Join a Room (Called from JoinRoom.jsx)
+// 2. Join a Room
 export const joinRoom = mutation({
   args: { code: v.string(), name: v.string() },
   handler: async (ctx, args) => {
@@ -93,8 +99,7 @@ export const joinRoom = mutation({
   },
 });
 
-// 3. Get Real-time Game State (Called from RoomPlayer & RoomBanker)
-// This is a "query", meaning it runs automatically and updates the UI in real-time
+// 3. Get Real-time Game State
 export const getRoomState = query({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, args) => {
@@ -111,7 +116,6 @@ export const getRoomState = query({
       .order("desc")
       .take(10);
 
-    // YE LINE ADD KARNI HAI PROPERTIES LANE KE LIYE
     const properties = await ctx.db
       .query("properties")
       .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
@@ -121,7 +125,7 @@ export const getRoomState = query({
   },
 });
 
-// Helper function to log a transaction (With Proper Types)
+// Helper: Log Transaction
 async function logTransaction(
   ctx: MutationCtx, 
   roomId: Id<"rooms">, 
@@ -138,7 +142,16 @@ async function logTransaction(
   });
 }
 
-// 4. Banker Pays Player (Bank -> Player)
+// Helper: Get all properties of same color group in a room
+async function getColorGroup(ctx: MutationCtx, roomId: Id<"rooms">, color: string) {
+  return await ctx.db
+    .query("properties")
+    .withIndex("by_room", (q) => q.eq("roomId", roomId))
+    .filter((q) => q.eq(q.field("color"), color))
+    .collect();
+}
+
+// 4. Banker Pays Player
 export const bankerPayPlayer = mutation({
   args: { playerId: v.id("players"), amount: v.number() },
   handler: async (ctx, args) => {
@@ -150,7 +163,7 @@ export const bankerPayPlayer = mutation({
   },
 });
 
-// 5. Banker Collects from Player (Player -> Bank)
+// 5. Banker Collects from Player
 export const bankerCollectPlayer = mutation({
   args: { playerId: v.id("players"), amount: v.number() },
   handler: async (ctx, args) => {
@@ -163,7 +176,7 @@ export const bankerCollectPlayer = mutation({
   },
 });
 
-// 6. Player Pays Bank (Player -> Bank)
+// 6. Player Pays Bank
 export const playerPayBank = mutation({
   args: { playerId: v.id("players"), amount: v.number() },
   handler: async (ctx, args) => {
@@ -176,7 +189,7 @@ export const playerPayBank = mutation({
   },
 });
 
-// 7. Player Pays Another Player (Player A -> Player B)
+// 7. Player Pays Another Player
 export const playerPayPlayer = mutation({
   args: { fromId: v.id("players"), toId: v.id("players"), amount: v.number() },
   handler: async (ctx, args) => {
@@ -193,11 +206,10 @@ export const playerPayPlayer = mutation({
   },
 });
 
-// 8. Banker leaves -> Delete the entire room and all its data
+// 8. Banker deletes the entire room
 export const deleteRoom = mutation({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, args) => {
-    // Saare players delete karo
     const players = await ctx.db
       .query("players")
       .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
@@ -206,7 +218,6 @@ export const deleteRoom = mutation({
       await ctx.db.delete(player._id);
     }
 
-      // Saari transactions delete karo
     const transactions = await ctx.db
       .query("transactions")
       .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
@@ -215,7 +226,6 @@ export const deleteRoom = mutation({
       await ctx.db.delete(tx._id);
     }
 
-    // YE LOOP ADD KARO: Saari properties delete karo
     const properties = await ctx.db
       .query("properties")
       .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
@@ -224,9 +234,6 @@ export const deleteRoom = mutation({
       await ctx.db.delete(prop._id);
     }
 
-    // Room ko delete karo (Agar exist karta hai toh)
-
-    // Room ko delete karo (Agar exist karta hai toh)
     const room = await ctx.db.get(args.roomId);
     if (room) {
         await ctx.db.delete(args.roomId);
@@ -234,7 +241,7 @@ export const deleteRoom = mutation({
   },
 });
 
-// 9. Player leaves -> Delete only the player from the room
+// 9. Player leaves the room
 export const leaveRoom = mutation({
   args: { playerId: v.id("players") },
   handler: async (ctx, args) => {
@@ -242,12 +249,12 @@ export const leaveRoom = mutation({
   },
 });
 
-// 10. Banker sells a property to a player (Supports Auctions with Custom Price)
+// 10. Banker sells a property (supports Auction Custom Price)
 export const buyProperty = mutation({
   args: { 
     propertyId: v.id("properties"), 
     playerId: v.id("players"),
-    customPrice: v.optional(v.number()) // YE LINE ADD KARNI HAI
+    customPrice: v.optional(v.number())
   },
   handler: async (ctx, args) => {
     const property = await ctx.db.get(args.propertyId);
@@ -256,42 +263,35 @@ export const buyProperty = mutation({
     if (!property || !player) throw new Error("Property or Player not found");
     if (property.ownerId) throw new Error("Property already owned");
 
-    // Agar custom price (auction) hai toh wo use karo, warna original price
     const finalPrice = args.customPrice !== undefined ? args.customPrice : property.price;
     
     if (player.balance < finalPrice) throw new Error("Insufficient funds");
 
-    // 1. Player se paise kato
     await ctx.db.patch(args.playerId, { balance: player.balance - finalPrice });
-    // 2. Property player ko assign karo
     await ctx.db.patch(args.propertyId, { ownerId: args.playerId });
     
     await logTransaction(ctx, player.roomId, player.name, "Bank (Property)", finalPrice);
   },
 });
 
-// 11. Trade property between two players (Player A gives property to Player B)
+// 11. Trade property between players
 export const tradeProperty = mutation({
   args: { propertyId: v.id("properties"), toPlayerId: v.id("players") },
   handler: async (ctx, args) => {
     const property = await ctx.db.get(args.propertyId);
     if (!property || !property.ownerId) throw new Error("Property has no owner");
 
-       // Pehle purana malik (fromPlayer) nikal lo
     const fromPlayer = await ctx.db.get(property.ownerId);
     const toPlayer = await ctx.db.get(args.toPlayerId);
+    if (!fromPlayer || !toPlayer) throw new Error("Player not found");
 
-    // Ab property ka malik badal do
     await ctx.db.patch(args.propertyId, { ownerId: args.toPlayerId });
     
-    // Transaction log karo
-    if (fromPlayer && toPlayer) {
-      await logTransaction(ctx, fromPlayer.roomId, fromPlayer.name, toPlayer.name, 0);
-    }
+    await logTransaction(ctx, fromPlayer.roomId, fromPlayer.name, `${toPlayer.name} (Trade)`, 0);
   },
 });
 
-// 12. Player mortgages a property to the Bank
+// 12. Mortgage a property
 export const mortgageProperty = mutation({
   args: { propertyId: v.id("properties") },
   handler: async (ctx, args) => {
@@ -304,16 +304,14 @@ export const mortgageProperty = mutation({
 
     const loanAmount = Math.floor(property.price / 2);
 
-    // Player ko aadhe paise do
     await ctx.db.patch(player._id, { balance: player.balance + loanAmount });
-    // Property ko mortgaged mark karo
     await ctx.db.patch(args.propertyId, { mortgaged: true });
 
     await logTransaction(ctx, player.roomId, "Bank (Mortgage)", player.name, loanAmount);
   },
 });
 
-// 13. Player repays the mortgage to get property back
+// 13. Unmortgage a property
 export const unmortgageProperty = mutation({
   args: { propertyId: v.id("properties") },
   handler: async (ctx, args) => {
@@ -324,14 +322,155 @@ export const unmortgageProperty = mutation({
     const player = await ctx.db.get(property.ownerId);
     if (!player) throw new Error("Player not found");
 
-    const repayAmount = Math.floor(property.price / 2); // 10% interest ignore for simplicity
+    const repayAmount = Math.floor(property.price / 2);
     if (player.balance < repayAmount) throw new Error("Insufficient funds to unmortgage");
 
-    // Player se paise wapas le lo
     await ctx.db.patch(player._id, { balance: player.balance - repayAmount });
-    // Property ko unmortgaged mark karo
     await ctx.db.patch(args.propertyId, { mortgaged: false });
 
     await logTransaction(ctx, player.roomId, player.name, "Bank (Unmortgage)", repayAmount);
+  },
+});
+
+// 14. Build a House (requires FULL color set, even building rule)
+export const buyHouse = mutation({
+  args: { propertyId: v.id("properties") },
+  handler: async (ctx, args) => {
+    const property = await ctx.db.get(args.propertyId);
+    if (!property || !property.ownerId) throw new Error("Property has no owner");
+    if (property.mortgaged) throw new Error("Cannot build on mortgaged property");
+    if (property.hotel) throw new Error("Hotel already built");
+    
+    const houses = property.houses || 0;
+    if (houses >= 4) throw new Error("Max houses reached - build a hotel instead");
+
+    // Full color set check
+    const group = await getColorGroup(ctx, property.roomId, property.color);
+    const ownsAll = group.every(p => p.ownerId === property.ownerId && !p.mortgaged);
+    if (!ownsAll) throw new Error("You must own the FULL color set (unmortgaged) to build houses");
+
+    // Even building rule
+    const minHouses = Math.min(...group.map(p => p.houses || 0));
+    if (houses > minHouses) throw new Error("Even building rule: build evenly across the whole set first");
+
+    const cost = HOUSE_COST[property.color];
+    const player = await ctx.db.get(property.ownerId);
+    if (!player) throw new Error("Player not found");
+    if (player.balance < cost) throw new Error(`Insufficient funds. House costs $${cost}`);
+
+    await ctx.db.patch(player._id, { balance: player.balance - cost });
+    await ctx.db.patch(args.propertyId, { houses: houses + 1 });
+
+    await logTransaction(ctx, player.roomId, player.name, `Bank (House on ${property.name})`, cost);
+  },
+});
+
+// 15. Build a Hotel (requires 4 houses)
+export const buyHotel = mutation({
+  args: { propertyId: v.id("properties") },
+  handler: async (ctx, args) => {
+    const property = await ctx.db.get(args.propertyId);
+    if (!property || !property.ownerId) throw new Error("Property has no owner");
+    if (property.hotel) throw new Error("Hotel already built");
+
+    const houses = property.houses || 0;
+    if (houses < 4) throw new Error("You need 4 houses before building a hotel");
+
+    const cost = HOUSE_COST[property.color];
+    const player = await ctx.db.get(property.ownerId);
+    if (!player) throw new Error("Player not found");
+    if (player.balance < cost) throw new Error(`Insufficient funds. Hotel costs $${cost}`);
+
+    await ctx.db.patch(player._id, { balance: player.balance - cost });
+    await ctx.db.patch(args.propertyId, { hotel: true, houses: 0 });
+
+    await logTransaction(ctx, player.roomId, player.name, `Bank (Hotel on ${property.name})`, cost);
+  },
+});
+
+// 16. Sell a building back to Bank (half price refund)
+export const sellBuilding = mutation({
+  args: { propertyId: v.id("properties") },
+  handler: async (ctx, args) => {
+    const property = await ctx.db.get(args.propertyId);
+    if (!property || !property.ownerId) throw new Error("Property has no owner");
+
+    const player = await ctx.db.get(property.ownerId);
+    if (!player) throw new Error("Player not found");
+
+    if (property.hotel) {
+      // Hotel goes back to 4 houses
+      await ctx.db.patch(args.propertyId, { hotel: false, houses: 4 });
+    } else if ((property.houses || 0) > 0) {
+      // Even selling rule
+      const group = await getColorGroup(ctx, property.roomId, property.color);
+      const myLevel = property.houses || 0;
+      const minLevel = Math.min(...group.map(p => p.hotel ? 5 : (p.houses || 0)));
+      if (myLevel > minLevel) throw new Error("Even selling rule: sell from the most built property first");
+      await ctx.db.patch(args.propertyId, { houses: myLevel - 1 });
+    } else {
+      throw new Error("No buildings to sell");
+    }
+
+    const refund = Math.floor((HOUSE_COST[property.color] || 0) / 2);
+    await ctx.db.patch(player._id, { balance: player.balance + refund });
+
+    await logTransaction(ctx, player.roomId, `Bank (Sold building on ${property.name})`, player.name, refund);
+  },
+});
+
+// 17. Pay Rent to the owner of a property
+export const payRent = mutation({
+  args: { propertyId: v.id("properties"), payerId: v.id("players"), diceRoll: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const property = await ctx.db.get(args.propertyId);
+    const payer = await ctx.db.get(args.payerId);
+    if (!property || !payer) throw new Error("Property or Player not found");
+    if (!property.ownerId) throw new Error("This property is unowned - no rent needed");
+    if (property.mortgaged) throw new Error("This property is mortgaged - no rent needed");
+    if (property.ownerId === args.payerId) throw new Error("You own this property!");
+
+    const owner = await ctx.db.get(property.ownerId);
+    if (!owner) throw new Error("Owner not found");
+
+    let rent = 0;
+
+    if (property.color === "black") {
+      // Station: rent depends on how many stations the owner has
+      const stations = (await getColorGroup(ctx, property.roomId, "black"))
+        .filter(s => s.ownerId === property.ownerId && !s.mortgaged).length;
+      rent = [0, 25, 50, 100, 200][stations];
+    } else if (property.color === "white") {
+      // Utility: 4x dice (1 owned) or 10x dice (2 owned)
+      const utils = (await getColorGroup(ctx, property.roomId, "white"))
+        .filter(s => s.ownerId === property.ownerId && !s.mortgaged).length;
+      const multiplier = utils >= 2 ? 10 : 4;
+      const dice = args.diceRoll || 7;
+      rent = multiplier * dice;
+    } else {
+      // Normal property
+      if (!property.rent) throw new Error("This room has no rent data. Please create a new room.");
+      const r = property.rent;
+      if (property.hotel) rent = r.hotel;
+      else if ((property.houses || 0) === 4) rent = r.house4;
+      else if ((property.houses || 0) === 3) rent = r.house3;
+      else if ((property.houses || 0) === 2) rent = r.house2;
+      else if ((property.houses || 0) === 1) rent = r.house1;
+      else {
+        // No houses: double rent if owner has full set
+        const group = await getColorGroup(ctx, property.roomId, property.color);
+        const ownsAll = group.every(p => p.ownerId === property.ownerId && !p.mortgaged);
+        rent = ownsAll ? r.set : r.site;
+      }
+    }
+
+    if (payer.balance < rent) throw new Error(`Insufficient funds. Rent is $${rent}`);
+
+    await ctx.db.patch(args.payerId, { balance: payer.balance - rent });
+    await ctx.db.patch(property.ownerId, { balance: owner.balance + rent });
+
+    await logTransaction(ctx, payer.roomId, `${payer.name} (Rent: ${property.name})`, owner.name, rent);
+
+    return { rent, ownerName: owner.name, propertyName: property.name };
   },
 });

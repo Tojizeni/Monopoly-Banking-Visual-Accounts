@@ -5,35 +5,35 @@ import { api } from '../../convex/_generated/api';
 import PlayerList from '../components/PlayerList';
 import Player from '../components/Player';
 import TransactionHistory from '../components/TransactionHistory';
-import PropertyManager from '../components/PropertyManager'; // 1. YEH IMPORT ADD KIYA HAI
+import PropertyManager from '../components/PropertyManager';
 
 export default function RoomPlayer() {
     const { id } = useParams();
     const roomId = id;
-    const leaveRoom = useMutation(api.game.leaveRoom);
     const navigate = useNavigate();
 
-    // 1. Convex se live data lo
     const gameState = useQuery(api.game.getRoomState, { roomId: roomId });
 
-    // Ye lines pehle se hongi
     const payBankMutation = useMutation(api.game.playerPayBank);
     const payPlayerMutation = useMutation(api.game.playerPayPlayer);
+    const leaveRoom = useMutation(api.game.leaveRoom);
 
-    // YE 3 LINES ADD KARO
+    // Property Mutations
     const tradePropMutation = useMutation(api.game.tradeProperty);
     const mortgagePropMutation = useMutation(api.game.mortgageProperty);
     const unmortgagePropMutation = useMutation(api.game.unmortgageProperty);
+    const buyHouseMutation = useMutation(api.game.buyHouse);
+    const buyHotelMutation = useMutation(api.game.buyHotel);
+    const sellBuildingMutation = useMutation(api.game.sellBuilding);
+    const payRentMutation = useMutation(api.game.payRent);
 
-    // 3. Current player ka ID localStorage se lo
     const myPlayerId = localStorage.getItem('playerId');
 
     if (!gameState) {
         return <div className="p-8 text-center text-gray-400 min-h-screen flex items-center justify-center">Loading game...</div>;
     }
 
-    // 4. Current player ko find karo
-    const currentPlayer = gameState.players.find(p => p._id === myPlayerId);
+    const currentPlayer = gameState.players.find(p => String(p._id) === String(myPlayerId));
 
     if (!currentPlayer) {
         return (
@@ -70,10 +70,7 @@ export default function RoomPlayer() {
 
             <div className="flex flex-col lg:flex-row gap-6">
                 <div className="lg:w-1/4 min-w-0">
-                    <PlayerList
-                        players={gameState.players}
-                        currentPlayerId={myPlayerId} // YE LINE ZAROOR HONI CHAHIYE
-                    />
+                    <PlayerList players={gameState.players} currentPlayerId={myPlayerId} />
                 </div>
                 <div className="lg:w-2/4 min-w-0">
                     <Player
@@ -88,7 +85,6 @@ export default function RoomPlayer() {
                 </div>
             </div>
 
-            {/* 2. YEH PROPERTY MANAGER COMPONENT ADD KIYA HAI */}
             <div className="mt-6">
                 <PropertyManager
                     properties={gameState.properties}
@@ -97,9 +93,12 @@ export default function RoomPlayer() {
                     onTradeProperty={(propId, toPlayerId) => tradePropMutation({ propertyId: propId, toPlayerId })}
                     onMortgage={(propId) => mortgagePropMutation({ propertyId: propId })}
                     onUnmortgage={(propId) => unmortgagePropMutation({ propertyId: propId })}
+                    onBuyHouse={(propId) => buyHouseMutation({ propertyId: propId })}
+                    onBuyHotel={(propId) => buyHotelMutation({ propertyId: propId })}
+                    onSellBuilding={(propId) => sellBuildingMutation({ propertyId: propId })}
+                    onPayRent={(propId, dice) => payRentMutation({ propertyId: propId, payerId: myPlayerId, diceRoll: dice })}
                 />
             </div>
-
         </div>
     );
 }
