@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -26,8 +26,24 @@ export default function RoomPlayer() {
     const buyHotelMutation = useMutation(api.game.buyHotel);
     const sellBuildingMutation = useMutation(api.game.sellBuilding);
     const payRentMutation = useMutation(api.game.payRent);
+    const backfillRoom = useMutation(api.game.backfillRoom);
 
     const myPlayerId = localStorage.getItem('playerId');
+
+    // PURANE rooms mein rent data missing hota hai (new code deploy se pehle bane the).
+    // Room khulte waqt ek baar backfill chala do — naye rooms par koi asar nahi.
+    const backfillDone = useRef(false);
+    useEffect(() => {
+        if (!gameState || backfillDone.current) return;
+        const needsFix = gameState.properties.some(
+            p => (p.color !== 'black' && p.color !== 'white' && !p.rent) || p.houses === undefined
+        );
+        if (needsFix) {
+            backfillDone.current = true;
+            backfillRoom({ roomId })
+                .catch(err => console.error('Backfill failed (backend updated?):', err?.message || err));
+        }
+    }, [gameState, roomId, backfillRoom]);
 
     if (!gameState) {
         return <div className="p-8 text-center text-gray-400 min-h-screen flex items-center justify-center">Loading game...</div>;
@@ -47,6 +63,17 @@ export default function RoomPlayer() {
         );
     }
 
+    const handleLeaveRoom = async () => {
+        if (!window.confirm('Leave this room?')) return;
+        try {
+            await leaveRoom({ playerId: myPlayerId });
+            localStorage.removeItem('playerId');
+            navigate('/');
+        } catch (err) {
+            alert('Could not leave room: ' + (err?.message || 'try again'));
+        }
+    };
+
     return (
         <div className="flex-grow p-4 sm:p-6 max-w-7xl mx-auto w-full">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-gray-700">
@@ -57,11 +84,7 @@ export default function RoomPlayer() {
                     </p>
                 </div>
                 <button
-                    onClick={async () => {
-                        await leaveRoom({ playerId: myPlayerId });
-                        localStorage.removeItem('playerId');
-                        navigate('/');
-                    }}
+                    onClick={handleLeaveRoom}
                     className="mt-3 sm:mt-0 text-sm bg-red-600 hover:bg-red-700 text-white border border-red-600 px-4 py-2 rounded-lg transition cursor-pointer"
                 >
                     Leave Room
@@ -90,6 +113,7 @@ export default function RoomPlayer() {
                     properties={gameState.properties}
                     players={gameState.players}
                     currentPlayerId={myPlayerId}
+                    currentBalance={currentPlayer.balance}
                     onTradeProperty={(propId, toPlayerId) => tradePropMutation({ propertyId: propId, toPlayerId })}
                     onMortgage={(propId) => mortgagePropMutation({ propertyId: propId })}
                     onUnmortgage={(propId) => unmortgagePropMutation({ propertyId: propId })}

@@ -3,6 +3,7 @@ import { query, mutation } from "./_generated/server";
 import { MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 
 function generateCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -53,7 +54,7 @@ const propertyList = [
 // 1. Create a Room
 export const createRoom = mutation({
   args: { name: v.string() },
-  handler: async (ctx, args) => {
+  handler: async (ctx, _args) => {
     const code = generateCode();
     const room = await ctx.db.insert("rooms", { 
       code, 
@@ -100,11 +101,15 @@ export const joinRoom = mutation({
 });
 
 // 3. Get Real-time Game State
+// NOTE: Queries can't write. Purane rooms mein rent/houses data missing hota hai
+// (new code deploy hone se pehle bane the). Un rooms ke liye getRoomState ke
+// saath ek baar "backfillRoom" mutation chalana zaroori hai — RoomPlayer.jsx
+// iska khud dhyan rakhta hai.
 export const getRoomState = query({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, args) => {
     const room = await ctx.db.get(args.roomId);
-    
+
     const players = await ctx.db
       .query("players")
       .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
@@ -122,6 +127,40 @@ export const getRoomState = query({
       .collect();
 
     return { room, players, transactions, properties };
+  },
+});
+
+// 3b. One-time backfill for OLD rooms (jo new code deploy hone se pehle bane the)
+// Rent data aur houses/hotel fields add karta hai. Naye rooms par koi asar nahi.
+export const backfillRoom = mutation({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, args) => {
+    const properties = await ctx.db
+      .query("properties")
+      .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
+      .collect();
+
+    let fixed = 0;
+    for (const prop of properties) {
+      const meta = propertyList.find(p => p.name === prop.name);
+      if (!meta) continue;
+
+      const patch: Record<string, unknown> = {};
+      if ("rent" in meta && meta.rent && !prop.rent) {
+        patch.rent = meta.rent;
+      }
+      if (prop.houses === undefined) {
+        patch.houses = 0;
+      }
+      if (prop.hotel === undefined) {
+        patch.hotel = false;
+      }
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(prop._id, patch);
+        fixed++;
+      }
+    }
+    return { fixed };
   },
 });
 
@@ -337,26 +376,26 @@ export const buyHouse = mutation({
   args: { propertyId: v.id("properties") },
   handler: async (ctx, args) => {
     const property = await ctx.db.get(args.propertyId);
-    if (!property || !property.ownerId) throw new Error("Property has no owner");
-    if (property.mortgaged) throw new Error("Cannot build on mortgaged property");
-    if (property.hotel) throw new Error("Hotel already built");
-    
+    if (!property || !property.ownerId) throw new ConvexError("This property has no owner yet");
+    if (property.mortgaged) throw new ConvexError("Cannot build on a mortgaged property — unmortgage it first");
+    if (property.hotel) throw new ConvexError("Hotel already built here");
+
     const houses = property.houses || 0;
-    if (houses >= 4) throw new Error("Max houses reached - build a hotel instead");
+    if (houses >= 4) throw new ConvexError("Max 4 houses — build a HOTEL instead");
 
     // Full color set check
     const group = await getColorGroup(ctx, property.roomId, property.color);
     const ownsAll = group.every(p => p.ownerId === property.ownerId && !p.mortgaged);
-    if (!ownsAll) throw new Error("You must own the FULL color set (unmortgaged) to build houses");
+    if (!ownsAll) throw new ConvexError("You need the FULL color set (unmortgaged) before building houses");
 
     // Even building rule
     const minHouses = Math.min(...group.map(p => p.houses || 0));
-    if (houses > minHouses) throw new Error("Even building rule: build evenly across the whole set first");
+    if (houses > minHouses) throw new ConvexError("Even build rule: pehle baaki properties of this set par houses banao");
 
-    const cost = HOUSE_COST[property.color];
+    const cost = HOUSE_COST[property.color] ?? 0;
     const player = await ctx.db.get(property.ownerId);
-    if (!player) throw new Error("Player not found");
-    if (player.balance < cost) throw new Error(`Insufficient funds. House costs $${cost}`);
+    if (!player) throw new ConvexError("Player not found");
+    if (player.balance < cost) throw new ConvexError(`Not enough money: house costs $${cost}, you have $${player.balance}`);
 
     await ctx.db.patch(player._id, { balance: player.balance - cost });
     await ctx.db.patch(args.propertyId, { houses: houses + 1 });
@@ -370,16 +409,22 @@ export const buyHotel = mutation({
   args: { propertyId: v.id("properties") },
   handler: async (ctx, args) => {
     const property = await ctx.db.get(args.propertyId);
-    if (!property || !property.ownerId) throw new Error("Property has no owner");
-    if (property.hotel) throw new Error("Hotel already built");
+    if (!property || !property.ownerId) throw new ConvexError("This property has no owner yet");
+    if (property.mortgaged) throw new ConvexError("Cannot build on a mortgaged property");
+    if (property.hotel) throw new ConvexError("Hotel already built here");
 
     const houses = property.houses || 0;
-    if (houses < 4) throw new Error("You need 4 houses before building a hotel");
+    if (houses < 4) throw new ConvexError(`You need 4 houses first (currently ${houses})`);
 
-    const cost = HOUSE_COST[property.color];
+    // Full color set bhi zaroori hai
+    const group = await getColorGroup(ctx, property.roomId, property.color);
+    const ownsAll = group.every(p => p.ownerId === property.ownerId && !p.mortgaged);
+    if (!ownsAll) throw new ConvexError("You need the FULL color set (unmortgaged) to build a hotel");
+
+    const cost = HOUSE_COST[property.color] ?? 0;
     const player = await ctx.db.get(property.ownerId);
-    if (!player) throw new Error("Player not found");
-    if (player.balance < cost) throw new Error(`Insufficient funds. Hotel costs $${cost}`);
+    if (!player) throw new ConvexError("Player not found");
+    if (player.balance < cost) throw new ConvexError(`Not enough money: hotel costs $${cost}, you have $${player.balance}`);
 
     await ctx.db.patch(player._id, { balance: player.balance - cost });
     await ctx.db.patch(args.propertyId, { hotel: true, houses: 0 });
@@ -393,10 +438,10 @@ export const sellBuilding = mutation({
   args: { propertyId: v.id("properties") },
   handler: async (ctx, args) => {
     const property = await ctx.db.get(args.propertyId);
-    if (!property || !property.ownerId) throw new Error("Property has no owner");
+    if (!property || !property.ownerId) throw new ConvexError("This property has no owner");
 
     const player = await ctx.db.get(property.ownerId);
-    if (!player) throw new Error("Player not found");
+    if (!player) throw new ConvexError("Player not found");
 
     if (property.hotel) {
       // Hotel goes back to 4 houses
@@ -406,10 +451,10 @@ export const sellBuilding = mutation({
       const group = await getColorGroup(ctx, property.roomId, property.color);
       const myLevel = property.houses || 0;
       const minLevel = Math.min(...group.map(p => p.hotel ? 5 : (p.houses || 0)));
-      if (myLevel > minLevel) throw new Error("Even selling rule: sell from the most built property first");
+      if (myLevel > minLevel) throw new ConvexError("Even sell rule: pehle sabse zyada built property se becho");
       await ctx.db.patch(args.propertyId, { houses: myLevel - 1 });
     } else {
-      throw new Error("No buildings to sell");
+      throw new ConvexError("No buildings on this property to sell");
     }
 
     const refund = Math.floor((HOUSE_COST[property.color] || 0) / 2);
@@ -425,13 +470,13 @@ export const payRent = mutation({
   handler: async (ctx, args) => {
     const property = await ctx.db.get(args.propertyId);
     const payer = await ctx.db.get(args.payerId);
-    if (!property || !payer) throw new Error("Property or Player not found");
-    if (!property.ownerId) throw new Error("This property is unowned - no rent needed");
-    if (property.mortgaged) throw new Error("This property is mortgaged - no rent needed");
-    if (property.ownerId === args.payerId) throw new Error("You own this property!");
+    if (!property || !payer) throw new ConvexError("Property or Player not found");
+    if (!property.ownerId) throw new ConvexError("This property is unowned - no rent needed");
+    if (property.mortgaged) throw new ConvexError("This property is mortgaged - no rent needed");
+    if (property.ownerId === args.payerId) throw new ConvexError("You own this property - no rent to yourself!");
 
     const owner = await ctx.db.get(property.ownerId);
-    if (!owner) throw new Error("Owner not found");
+    if (!owner) throw new ConvexError("Owner not found");
 
     let rent = 0;
 
@@ -449,7 +494,7 @@ export const payRent = mutation({
       rent = multiplier * dice;
     } else {
       // Normal property
-      if (!property.rent) throw new Error("This room has no rent data. Please create a new room.");
+      if (!property.rent) throw new ConvexError("This room has no rent data (old room). Banker should open the room once, ya naya room banao.");
       const r = property.rent;
       if (property.hotel) rent = r.hotel;
       else if ((property.houses || 0) === 4) rent = r.house4;
@@ -464,7 +509,7 @@ export const payRent = mutation({
       }
     }
 
-    if (payer.balance < rent) throw new Error(`Insufficient funds. Rent is $${rent}`);
+    if (payer.balance < rent) throw new ConvexError(`Not enough money: rent is $${rent}, you have $${payer.balance}`);
 
     await ctx.db.patch(args.payerId, { balance: payer.balance - rent });
     await ctx.db.patch(property.ownerId, { balance: owner.balance + rent });

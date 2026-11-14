@@ -7,7 +7,24 @@ const HOUSE_COSTS = {
     green: 200, darkblue: 200,
 };
 
-export default function PropertyManager({ properties, players, onBuyProperty, onTradeProperty, currentPlayerId, onMortgage, onUnmortgage, onBuyHouse, onBuyHotel, onSellBuilding, onPayRent }) {
+// Convex errors apne sath "[CONVEX ...]" prefix, Request ID aur stack trace laate
+// hain. Asli message "Uncaught ConvexError: <msg>" line mein hota hai — usay nikalo.
+function friendlyError(err) {
+    let msg = err?.message || String(err);
+    // 1) "[CONVEX MUTATION(game/buyHouse)]" prefix hatao
+    msg = msg.replace(/^\[CONVEX[^\]]*\]\s*/i, '');
+    // 2) Asli message "Uncaught ConvexError: X" / "Uncaught Error: X" line mein hai
+    const m = msg.match(/Uncaught\s+(?:Convex)?Error:\s*([\s\S]+)/i);
+    if (m) msg = m[1];
+    // 3) "[Request ID: ...]" aur "Server Error" noise hatao
+    msg = msg.replace(/\[Request ID:[^\]]*\]\s*/g, '');
+    msg = msg.replace(/^Server Error\s*/i, '');
+    // 4) Sirf pehli line rakho (baaki stack hai)
+    msg = msg.split('\n')[0].trim();
+    return msg || 'Something went wrong. Please try again.';
+}
+
+export default function PropertyManager({ properties, players, onBuyProperty, onTradeProperty, currentPlayerId, currentBalance, onMortgage, onUnmortgage, onBuyHouse, onBuyHotel, onSellBuilding, onPayRent }) {
     if (!properties || properties.length === 0) {
         return null;
     }
@@ -40,6 +57,14 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
             return group.length > 0 && group.every(p => String(p.ownerId) === String(currentPlayerId) && !p.mortgaged);
         };
 
+        // Set progress (e.g. 2/3) — sirf street colors ke liye
+        const setProgress = (prop) => {
+            if (isStation(prop) || isUtility(prop)) return null;
+            const group = properties.filter(p => p.color === prop.color);
+            const owned = group.filter(p => String(p.ownerId) === String(currentPlayerId)).length;
+            return { owned, total: group.length };
+        };
+
         const handlePayRent = async (prop) => {
             let dice;
             if (isUtility(prop)) {
@@ -52,7 +77,73 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                 const result = await onPayRent(prop._id, dice);
                 alert(`Rent Paid: $${result.rent} -> ${result.ownerName} (${result.propertyName})`);
             } catch (err) {
-                alert(err.message);
+                alert('❌ Rent failed: ' + friendlyError(err));
+            }
+        };
+
+        const handleBuildHouse = async (prop) => {
+            const cost = HOUSE_COSTS[prop.color];
+            if (!window.confirm(`Build a house on ${prop.name} for $${cost}?`)) return;
+            try {
+                await onBuyHouse(prop._id);
+                alert(`🏠 House built on ${prop.name}! -$${cost}`);
+            } catch (err) {
+                alert('❌ ' + friendlyError(err));
+            }
+        };
+
+        const handleBuildHotel = async (prop) => {
+            const cost = HOUSE_COSTS[prop.color];
+            if (!window.confirm(`Upgrade ${prop.name} to a HOTEL for $${cost}? (4 houses -> Hotel)`)) return;
+            try {
+                await onBuyHotel(prop._id);
+                alert(`🏨 Hotel built on ${prop.name}! -$${cost}`);
+            } catch (err) {
+                alert('❌ ' + friendlyError(err));
+            }
+        };
+
+        const handleSellBuilding = async (prop) => {
+            const refund = Math.floor((HOUSE_COSTS[prop.color] || 0) / 2);
+            if (!window.confirm(`Sell a building on ${prop.name} back to the Bank for $${refund}?`)) return;
+            try {
+                await onSellBuilding(prop._id);
+                alert(`💰 Building sold on ${prop.name}! +$${refund}`);
+            } catch (err) {
+                alert('❌ ' + friendlyError(err));
+            }
+        };
+
+        const handleMortgage = async (prop) => {
+            const loan = Math.floor(prop.price / 2);
+            if (!window.confirm(`Mortgage ${prop.name} to the Bank for $${loan}?`)) return;
+            try {
+                await onMortgage(prop._id);
+                alert(`🏦 ${prop.name} mortgaged! +$${loan}`);
+            } catch (err) {
+                alert('❌ ' + friendlyError(err));
+            }
+        };
+
+        const handleUnmortgage = async (prop) => {
+            const repay = Math.floor(prop.price / 2);
+            if (!window.confirm(`Repay mortgage on ${prop.name} for $${repay}?`)) return;
+            try {
+                await onUnmortgage(prop._id);
+                alert(`✅ ${prop.name} unmortgaged! -$${repay}`);
+            } catch (err) {
+                alert('❌ ' + friendlyError(err));
+            }
+        };
+
+        const handleTrade = async (prop, toPlayerId) => {
+            const toPlayer = players.find(p => String(p._id) === String(toPlayerId));
+            if (!window.confirm(`Trade ${prop.name} to ${toPlayer?.name}?`)) return;
+            try {
+                await onTradeProperty(prop._id, toPlayerId);
+                alert(`🤝 ${prop.name} traded to ${toPlayer?.name}.`);
+            } catch (err) {
+                alert('❌ ' + friendlyError(err));
             }
         };
 
@@ -61,6 +152,9 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
             const houses = prop.houses || 0;
             const canBuild = ownsFullSet(prop) && !isStation(prop) && !isUtility(prop) && !isMortgaged;
             const houseCost = HOUSE_COSTS[prop.color] || 0;
+            const progress = setProgress(prop);
+            const balance = typeof currentBalance === 'number' ? currentBalance : null;
+            const notEnoughMoney = balance !== null && balance < houseCost;
 
             return (
                 <div key={prop._id} className={`p-4 rounded-xl border flex flex-col ${isMortgaged ? 'bg-red-900/20 border-red-700/50' : 'bg-gray-900/50 border-gray-700'}`}>
@@ -81,6 +175,15 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                         <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded text-center font-medium mb-2">Mortgaged</span>
                     )}
 
+                    {/* Full Set Badge — build unlock status */}
+                    {progress && !isMortgaged && (
+                        ownsFullSet(prop) ? (
+                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-center font-semibold mb-2">✔ FULL SET — BUILD UNLOCKED</span>
+                        ) : (
+                            <span className="text-[10px] bg-gray-700/60 text-gray-400 px-2 py-1 rounded text-center font-medium mb-2">🔒 Set {progress.owned}/{progress.total} — full set needed to build</span>
+                        )
+                    )}
+
                     {/* Rent Details Table (collapsible) */}
                     {prop.rent && (
                         <details className="mb-2">
@@ -97,6 +200,9 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                             </div>
                         </details>
                     )}
+                    {!prop.rent && !isStation(prop) && !isUtility(prop) && (
+                        <p className="text-[11px] text-yellow-500/80 mb-2">⚠ Rent data missing (old room). It will auto-fix when anyone opens this room.</p>
+                    )}
                     {isStation(prop) && (
                         <p className="text-[11px] text-gray-500 mb-2">Rent: $25 / $50 / $100 / $200 (jitne stations malik ke paas hain)</p>
                     )}
@@ -107,17 +213,29 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                     {/* Build / Trade / Mortgage Buttons */}
                     <div className="mt-auto pt-2 space-y-2">
                         {canBuild && !prop.hotel && houses < 4 && (
-                            <button onClick={() => onBuyHouse(prop._id)} className="w-full text-xs bg-orange-600 hover:bg-orange-700 text-white px-2 py-2 rounded font-medium">
-                                🏠 Build House (-${houseCost})
-                            </button>
+                            notEnoughMoney ? (
+                                <button disabled className="w-full text-xs bg-red-900/40 border border-red-700/50 text-red-400 px-2 py-2 rounded font-medium cursor-not-allowed opacity-80">
+                                    🏠 Need ${houseCost} (you have ${balance})
+                                </button>
+                            ) : (
+                                <button onClick={() => handleBuildHouse(prop)} className="w-full text-xs bg-orange-600 hover:bg-orange-700 text-white px-2 py-2 rounded font-medium">
+                                    🏠 Build House (-${houseCost})
+                                </button>
+                            )
                         )}
                         {canBuild && !prop.hotel && houses === 4 && (
-                            <button onClick={() => onBuyHotel(prop._id)} className="w-full text-xs bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-2 rounded font-medium">
-                                🏨 Build Hotel (-${houseCost})
-                            </button>
+                            notEnoughMoney ? (
+                                <button disabled className="w-full text-xs bg-red-900/40 border border-red-700/50 text-red-400 px-2 py-2 rounded font-medium cursor-not-allowed opacity-80">
+                                    🏨 Need ${houseCost} (you have ${balance})
+                                </button>
+                            ) : (
+                                <button onClick={() => handleBuildHotel(prop)} className="w-full text-xs bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-2 rounded font-medium">
+                                    🏨 Build Hotel (-${houseCost})
+                                </button>
+                            )
                         )}
                         {(houses > 0 || prop.hotel) && onSellBuilding && (
-                            <button onClick={() => onSellBuilding(prop._id)} className="w-full text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-2 rounded font-medium">
+                            <button onClick={() => handleSellBuilding(prop)} className="w-full text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-2 rounded font-medium">
                                 💰 Sell Building (+${Math.floor(houseCost / 2)})
                             </button>
                         )}
@@ -127,7 +245,7 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                                 <select
                                     defaultValue=""
                                     onChange={(e) => {
-                                        if (e.target.value) { onTradeProperty && onTradeProperty(prop._id, e.target.value); e.target.value = ""; }
+                                        if (e.target.value) { handleTrade(prop, e.target.value); e.target.value = ""; }
                                     }}
                                     className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-indigo-500"
                                 >
@@ -137,14 +255,14 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                                     ))}
                                 </select>
                                 {onMortgage && (
-                                    <button onClick={() => onMortgage(prop._id)} className="w-full text-xs bg-yellow-600/80 hover:bg-yellow-600 text-white px-2 py-2 rounded font-medium">
+                                    <button onClick={() => handleMortgage(prop)} className="w-full text-xs bg-yellow-600/80 hover:bg-yellow-600 text-white px-2 py-2 rounded font-medium">
                                         Mortgage (+${Math.floor(prop.price / 2)})
                                     </button>
                                 )}
                             </>
                         ) : (
                             onUnmortgage && (
-                                <button onClick={() => onUnmortgage(prop._id)} className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-2 rounded font-medium">
+                                <button onClick={() => handleUnmortgage(prop)} className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-2 rounded font-medium">
                                     Repay Mortgage (-${Math.floor(prop.price / 2)})
                                 </button>
                             )
@@ -156,10 +274,11 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
 
         return (
             <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 shadow-xl mt-6">
-                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
                     <span className="bg-purple-500/20 text-purple-400 p-2 rounded-lg">🏠</span>
                     Property Portfolio
                 </h2>
+                <p className="text-xs text-gray-500 mb-6">Houses sirf tab banti hain jab poora color set aapka ho aur balance kafi ho. Har action par confirm popup aayega.</p>
 
                 {/* 1. My Properties */}
                 <div className="mb-6">
@@ -220,6 +339,26 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
     }
 
     // ==================== BANKER VIEW ====================
+    const handleBankerSell = async (prop, playerId, amount) => {
+        try {
+            await onBuyProperty(prop._id, playerId, amount);
+            alert(`✅ ${prop.name} sold to ${players.find(p => String(p._id) === String(playerId))?.name} for $${amount}.`);
+        } catch (err) {
+            alert('❌ ' + friendlyError(err));
+        }
+    };
+
+    const handleBankerTrade = async (prop, toPlayerId) => {
+        const toPlayer = players.find(p => String(p._id) === String(toPlayerId));
+        if (!window.confirm(`Transfer ${prop.name} to ${toPlayer?.name}?`)) return;
+        try {
+            await onTradeProperty(prop._id, toPlayerId);
+            alert(`🤝 ${prop.name} transferred to ${toPlayer?.name}.`);
+        } catch (err) {
+            alert('❌ ' + friendlyError(err));
+        }
+    };
+
     return (
         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 shadow-xl mt-6">
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
@@ -260,7 +399,7 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                                             const playerId = formData.get('player');
                                             const amount = Number(formData.get('price')) || prop.price;
                                             if (playerId) {
-                                                onBuyProperty(prop._id, playerId, amount);
+                                                handleBankerSell(prop, playerId, amount);
                                                 e.target.reset();
                                             }
                                         }}
@@ -287,7 +426,7 @@ export default function PropertyManager({ properties, players, onBuyProperty, on
                                         <select
                                             defaultValue=""
                                             onChange={(e) => {
-                                                if (e.target.value) { onTradeProperty(prop._id, e.target.value); e.target.value = ""; }
+                                                if (e.target.value) { handleBankerTrade(prop, e.target.value); e.target.value = ""; }
                                             }}
                                             className="w-full text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 outline-none focus:ring-1 focus:ring-indigo-500"
                                         >

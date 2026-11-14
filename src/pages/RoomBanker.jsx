@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -17,11 +17,27 @@ export default function RoomBanker() {
     const bankerPay = useMutation(api.game.bankerPayPlayer);
     const bankerCollect = useMutation(api.game.bankerCollectPlayer);
     const deleteRoom = useMutation(api.game.deleteRoom);
+    const backfillRoom = useMutation(api.game.backfillRoom);
 
     // Yeh function player ko nikalne ke liye hai
     const kickPlayer = useMutation(api.game.leaveRoom);
 
     const [isLeaving, setIsLeaving] = useState(false);
+
+    // PURANE rooms (new code deploy se pehle bane) mein rent data missing hota hai.
+    // Banker room kholte hi ek baar backfill chala do.
+    const backfillDone = useRef(false);
+    useEffect(() => {
+        if (!gameState || backfillDone.current) return;
+        const needsFix = gameState.properties.some(
+            p => (p.color !== 'black' && p.color !== 'white' && !p.rent) || p.houses === undefined
+        );
+        if (needsFix) {
+            backfillDone.current = true;
+            backfillRoom({ roomId })
+                .catch(err => console.error('Backfill failed (backend updated?):', err?.message || err));
+        }
+    }, [gameState, roomId, backfillRoom]);
 
     if (!gameState || !gameState.room) {
         return (
@@ -90,6 +106,7 @@ export default function RoomBanker() {
                     properties={gameState.properties}
                     players={gameState.players}
                     onBuyProperty={(propId, playerId, amount) => buyProperty({ propertyId: propId, playerId, customPrice: amount })}
+                    onTradeProperty={(propId, toPlayerId) => tradeProperty({ propertyId: propId, toPlayerId })}
                 />
             </div>
 
